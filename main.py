@@ -34,6 +34,7 @@ def main():
     comments = []
     read_count = 0
     write_count = 0
+    subreddit_comment_counts = []
     
     print("Scanning {} for comments from selected subreddits...\n".format(inFile, sname))
     
@@ -42,6 +43,7 @@ def main():
             comment = json.loads(line)
             read_count += 1
             for i in sys.argv[3:]: #loop through the subreddits for each comment to check for a match
+                subreddit_comments = 0
                 if comment['subreddit'] == sys.argv[i].lower(): #maybe use regular expression of sname here to account for casing issues?
                     if comment['score'] >= 5: # at least a score of 5 to indicate community approval
                         spaceCount = 0
@@ -50,8 +52,9 @@ def main():
                                 spaceCount += 1
                         if spaceCount >=5: # at least 6 words in the comment to indicate substance
                             json.dump(comment, outFile)
+                            subreddit_comments += 1
                             write_count += 1
-
+                subreddit_comment_counts.append((sys.argv[i], subreddit_comments))
 
 
                  #comments.append(Comment(comment['subreddit'], comment['body']))
