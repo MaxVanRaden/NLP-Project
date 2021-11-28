@@ -8,64 +8,78 @@ import time
 import sys
 from datetime import datetime
 
-
-#move this to a command line argument at some point?
-sub_count = 0
-
 try:
     inFile = sys.argv[1] #first argument after script name must be present
     outFile = sys.argv[2] #second argument after script name must be present
-    sub = sys.argv[3] #must be at least one subreddit
+    sub = sys.argv[3:] #must be at least one subreddit
 except:
     print("Error. Not enough command line arguments.")
     exit()
 
-
-
-class Comment:
-    def __init__(self, subreddit, body):
-        self.subreddit = subreddit
-        self.body = body
-        #we can add more class variables as we need
-
 def main():
-    #sname = input("Enter a subreddit: ")
-    #outFile = sname + 'Comments.txt'
-    comments = []
+    kept_comments = []
+    slurs = get_slurs()
     read_count = 0
     write_count = 0
-    subreddit_comment_counts = []
+    subreddit_comment_counts = {}
+    slur_counts = {}
+    for item in sub:
+        subreddit_comment_counts.update({item: 0})
     
-    print("Scanning {} for comments from selected subreddits...\n".format(inFile, sname))
+    print("Scanning {} for comments from selected subreddits...\n".format(inFile))
+    
+    #should slur check be performed on data as it's being read? or on resulting comment file?
+    #total subreddit comments vs qualified comments
     
     with open(inFile) as f_in:
         for line in f_in:
             comment = json.loads(line)
             read_count += 1
-            for i in sys.argv[3:]: #loop through the subreddits for each comment to check for a match
+            for subreddit in sys.argv[3:]: #loop through the subreddits for each comment to check for a match
                 subreddit_comments = 0
-                if comment['subreddit'] == sys.argv[i].lower(): #maybe use regular expression of sname here to account for casing issues?
+                if comment['subreddit'] == subreddit.lower():
                     if comment['score'] >= 5: # at least a score of 5 to indicate community approval
                         spaceCount = 0
                         for c in comment['body']:
                             if c == ' ':
                                 spaceCount += 1
                         if spaceCount >=5: # at least 6 words in the comment to indicate substance
-                            json.dump(comment, outFile)
+                            comment_scrub = {'subreddit': comment['subreddit'], 
+                                             'score': comment['score'], 
+                                             'body': comment['body'] 
+                                             #'controversiality': comment['controversiality'], 
+                                             #'stickied': comment['stickied']
+                                             }
+                            kept_comments.append(comment_scrub) 
                             subreddit_comments += 1
-                            write_count += 1
-                subreddit_comment_counts.append((sys.argv[i], subreddit_comments))
-
-
-                 #comments.append(Comment(comment['subreddit'], comment['body']))
+                subreddit_comment_counts[subreddit] += subreddit_comments
     f_in.close()
 
-#    with open(outFile, "w", encoding = 'utf-8') as f_out:
-#        for comment in comments:
-#            f_out.write("Subreddit: {}\nComment: {}\n".format(comment.subreddit, comment.body))
-#            write_count += 1
-#    f_out.close()
-    print("Success! Subreddit {} has {} comments out of {} total\n".format(sname, write_count, read_count))
+    with open(outFile, "w", encoding = 'utf-8') as f_out:
+        for comment in kept_comments:
+            f_out.write(json.dumps(comment) + '\n')
+            write_count += 1
+    f_out.close()
+    
+    metadata_file = 'sub_meta_data.txt'
+    
+    with open(metadata_file, "w", encoding = 'utf-8') as meta_out:
+        for item in subreddit_comment_counts:
+            meta_out.write(json.dumps({item: subreddit_comment_counts[item]}) + '\n')
+    meta_out.close()
+    
+def get_slurs():
+    slur_file = 'slurs.txt' #incorporate as command line argument?
+    slur_list = []
+
+    with open(slur_file) as slur_data:
+        for line in slur_data:
+            str = line.strip('\n()')
+            str = str.split(',')
+            slur_list.append(str)
+    slur_data.close()
+    return slur_list
+    
     
 if __name__ == "__main__":
     now = datetime.now()
